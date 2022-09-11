@@ -1,3 +1,5 @@
+# Check the echos for info
+
 echo "Automated Wine installer is starting ..."
 
 echo "===============================Wine For Gnu/Linux================================
