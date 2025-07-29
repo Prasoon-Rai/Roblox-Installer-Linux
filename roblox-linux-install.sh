@@ -1,78 +1,130 @@
-# Check the echos for info
+#!/bin/bash
 
-echo "Automated Wine installer is starting ..."
+echo "--- Roblox on Linux Installer (via Grapejuice) ---"
+echo "This script will guide you through installing Grapejuice, which allows you to run Roblox."
+echo "-------------------------------------------------"
 
-echo "===============================Wine For Gnu/Linux================================
-                                        
-        This is just an automated Wine installer. You have to install Roblox separatly.
+check_command() {
+    if ! command -v "$1" &> /dev/null; then
+        echo "Error: '$1' command not found. Please install it first."
+        echo "For most systems, you can install it with: sudo apt install $1 (Debian/Ubuntu) or sudo dnf install $1 (Fedora) or sudo pacman -S $1 (Arch)"
+        exit 1
+    fi
+}
+
+check_command "sudo"
+check_command "curl"
+
+echo "Detecting your Linux distribution..."
+
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_ID=$ID
+    DISTRO_LIKE=${ID_LIKE}
+    DISTRO_VERSION_ID=$VERSION_ID
+else
+    echo "Warning: Could not detect distribution using /etc/os-release. Falling back to generic instructions."
+    DISTRO_ID="unknown"
+fi
+
+echo "Detected Distribution: ${DISTRO_ID} (ID_LIKE: ${DISTRO_LIKE})"
+
+case "$DISTRO_ID" in
+    ubuntu|debian)
+        echo "--- Detected Ubuntu/Debian based system ---"
+        echo "Grapejuice is available via a PPA (Personal Package Archive)."
+        echo "Adding the Grapejuice PPA and installing..."
+
+        sudo apt update
+        sudo apt install -y software-properties-common apt-transport-https
+        sudo add-apt-repository -y ppa:brinkervii/grapejuice
         
-        When this is done, install roblox like normal, or so im told.
-        I (Anonymous3-a) use arch, and no online tutorial has worked, so tell me if it
-        works on your computer.
+        # Add Wine repository (Grapejuice depends on Wine)
+        echo "Adding WineHQ repository..."
+        sudo mkdir -pm755 /etc/apt/keyrings
+        sudo wget -O /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.pub
+        
+        if [[ "$DISTRO_ID" == "ubuntu" ]]; then
+            UBUNTU_CODENAME=$(lsb_release -sc)
+            sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/ubuntu/dists/${UBUNTU_CODENAME}/winehq-${UBUNTU_CODENAME}.sources
+        elif [[ "$DISTRO_ID" == "debian" ]]; then
+            DEBIAN_CODENAME=$(lsb_release -sc)
+            sudo wget -NP /etc/apt/sources.list.d/ https://dl.winehq.org/wine-builds/debian/dists/${DEBIAN_CODENAME}/winehq-${DEBIAN_CODENAME}.sources
+        fi
 
-        Thank you!
+        echo "Updating package lists and installing Grapejuice and Wine..."
+        sudo apt update
+        sudo apt install -y --install-recommends winehq-stable
+        sudo apt install -y grapejuice
 
-      ==========================Anonymous3-a helped a bit===============================
-    "
+        echo "Grapejuice and Wine should now be installed."
+        ;;
 
-# Stor
-read -p "Enter distro (Debian, Ubuntu, or Arch):" currentdistro
+    fedora)
+        echo "--- Detected Fedora system ---"
+        echo "Grapejuice is available via COPR."
+        echo "Enabling COPR repository and installing..."
 
-mkdir -p /tmp/wineinstaller
-cd /tmp/wineinstaller
+        sudo dnf copr enable -y brindy/grapejuice
+        sudo dnf install -y grapejuice
 
-if [ currentdistro -eq "Debian" || currentdistro -eq "Ubuntu"];then
-  sudo apt install python3 -y
-  sudo apt install git -y
-fi
-if [ currentdistro -eq "Arch"];then
-  sudo pacman -S python3
-  sudo pacman -S git
-fi
+        echo "Grapejuice should now be installed."
+        ;;
 
-if [ currentdistro -eq "Debian" || currentdistro -eq "Ubuntu"];then
-  echo "Shining up..."
-  git clone https://github.com/Anonymous3-a/RandomSoftware/raw/main/aptup
-  chmod +x aptup
-  ./aptup
-  echo "Done."
-fi
-if [ currentdistro -eq "Arch" ];then
-  echo "Shining up..."
-  sudo pacman -Syu
-  echo "Done."
-fi
+    arch|manjaro)
+        echo "--- Detected Arch Linux / Manjaro system ---"
+        echo "Grapejuice is available in the AUR (Arch User Repository)."
+        echo "You will need an AUR helper like 'yay' or 'paru' to install it."
+        echo "If you don't have one, install 'yay' first (example):"
+        echo "  sudo pacman -S --needed git base-devel"
+        echo "  git clone https://aur.archlinux.org/yay.git"
+        echo "  cd yay"
+        echo "  makepkg -si"
+        echo "Then, you can install Grapejuice:"
+        echo "  yay -S grapejuice"
+        echo "  # or paru -S grapejuice"
+        echo ""
+        echo "Please run the above commands manually after the script finishes."
+        ;;
 
-if [ currentdistro -eq "Debian" || currentdistro -eq "Ubuntu"];then
-  sudo dpkg --add-architecture i386
-  sudo wget -nc -O /usr/share/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
-  sudo add-apt-repository 'deb https://dl.winehq.org/wine-builds/ubuntu/ focal main'
-  read -p "Stable, Devel, or Staging: " winetoinstall
-  if [ winetoinstall -eq "Stable" ];then
-    sudo apt install --install-recommends winehq-stable
-  fi
-  if [ winetoinstall -eq "Devel" ];then
-    sudo apt install --install-recommends winehq-devel
-  fi
-  if [ winetoinstall -eq "Staging" ];then
-    sudo apt install --install-recommends winehq-staging
-  fi
-  sudo apt install --install-recommends winehq
-  sudo apt install -y git python3-pip
-fi
-wget --no-check-certificate "https://onedrive.live.com/download?cid=0D1B2C3D089F7FA0&resid=D1B2C3D089F7FA0%21106&authkey=AAsdS8XcgeXp-_c" -O wine-tkg-staging-fsync-git-6.15.r0.g4b6879f3.tar.xz
+    opensuse*)
+        echo "--- Detected OpenSUSE system ---"
+        echo "Grapejuice is available via the Open Build Service (OBS)."
+        echo "Adding the OBS repository and installing..."
 
-tar -xf wine-tkg-staging-fsync-git-6.15.r0.g4b6879f3.tar.xz
+        sudo zypper addrepo https://download.opensuse.org/repositories/home:brinkervii:grapejuice/openSUSE_Tumbleweed/home:brinkervii:grapejuice.repo
+        sudo zypper refresh
+        sudo zypper install -y grapejuice
 
-git clone https://gitlab.com/brinkervii/grapejuice.git
+        echo "Grapejuice should now be installed."
+        ;;
+    
+    solus)
+        echo "--- Detected Solus system ---"
+        echo "Grapejuice is available in the Solus repositories."
+        echo "Installing Grapejuice..."
 
-cd grapejuice
+        sudo eopkg install -y grapejuice
 
-python3 ./install.py
+        echo "Grapejuice should now be installed."
+        ;;
 
-echo "
-Optimizing ...
-"
-sed '3d' ~/.config/brinkervii/grapejuice/user_settings.json
-sed '3 i /home/$(whoami)/wine-tkg-staging-fsync-git-6.15.r0.g4b6879f3/bin/wine' ~/.config/brinkervii/grapejuice/user_settings.json
-echo "Installation Complete!"
+    *)
+        echo "--- Detected an unsupported or unknown distribution: ${DISTRO_ID} ---"
+        echo "Unfortunately, this script cannot automate the installation for your system."
+        echo "Please visit the official Grapejuice GitHub page for installation instructions:"
+        echo "  https://github.com/brinkervii/grapejuice"
+        echo "Look for the 'Installation' section and follow the instructions for your specific distribution."
+        ;;
+esac
+
+echo "-------------------------------------------------"
+echo "--- Installation Attempt Complete ---"
+echo "To launch Grapejuice and install Roblox:"
+echo "1. Open your applications menu and search for 'Grapejuice'."
+echo "2. Launch Grapejuice."
+echo "3. Follow the on-screen instructions to install Roblox."
+echo "   (This usually involves clicking 'Install Roblox' or similar in the Grapejuice UI)."
+echo ""
+echo "If you encounter issues, please refer to the Grapejuice documentation or community forums."
+echo "-------------------------------------------------"
